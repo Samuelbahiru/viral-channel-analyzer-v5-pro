@@ -1,0 +1,269 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Channel {
+  id                    Int      @id @default(autoincrement())
+  youtubeChannelId       String   @unique @map("youtube_channel_id")
+  title                 String
+  description           String?
+  publishedAt           DateTime? @map("published_at")
+  subscriberCount        BigInt   @default(0) @map("subscriber_count")
+  hiddenSubscriberCount  Boolean  @default(false) @map("hidden_subscriber_count")
+  totalViewCount         BigInt   @default(0) @map("total_view_count")
+  videoCount             BigInt   @default(0) @map("video_count")
+  thumbnailUrl           String?  @map("thumbnail_url")
+  country               String?
+  customUrl             String?  @map("custom_url")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  videos                Video[]
+  savedChannels         SavedChannel[]
+  snapshots             ChannelSnapshot[]
+
+  @@map("channels")
+}
+
+model Video {
+  id                Int      @id @default(autoincrement())
+  youtubeVideoId    String   @unique @map("youtube_video_id")
+  youtubeChannelId  String   @map("youtube_channel_id")
+  title             String
+  publishedAt       DateTime? @map("published_at")
+  viewCount         BigInt   @default(0) @map("view_count")
+  likeCount         BigInt   @default(0) @map("like_count")
+  commentCount      BigInt   @default(0) @map("comment_count")
+  durationSeconds   Int?     @map("duration_seconds")
+  videoFormat       String?  @map("video_format")
+  engagementRate    Float    @default(0) @map("engagement_rate")
+  thumbnailUrl      String?  @map("thumbnail_url")
+  videoUrl          String?  @map("video_url")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  channel           Channel  @relation(fields: [youtubeChannelId], references: [youtubeChannelId])
+  savedChannels     SavedChannel[]
+  snapshots         VideoSnapshot[]
+
+  @@index([youtubeChannelId])
+  @@index([videoFormat])
+  @@map("videos")
+}
+
+model AnalysisRun {
+  id                    Int      @id @default(autoincrement())
+  keyword               String
+  regionCode            String?  @map("region_code")
+  daysBack              Int      @default(30) @map("days_back")
+  maxChannelAgeDays     Int      @default(365) @map("max_channel_age_days")
+  maxResults            Int      @default(25) @map("max_results")
+  minVideoViews         Int      @default(0) @map("min_video_views")
+  videoFormatFilter     String   @default("all") @map("video_format_filter")
+  totalVideosChecked    Int      @default(0) @map("total_videos_checked")
+  totalChannelsFound    Int      @default(0) @map("total_channels_found")
+  topScore              Float    @default(0) @map("top_score")
+  topOpportunityScore   Float    @default(0) @map("top_opportunity_score")
+  reportJson            Json?    @map("report_json")
+  status                String   @default("completed")
+  errorMessage          String?  @map("error_message")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  results               AnalysisResult[]
+  nicheReport           NicheReport?
+
+  @@index([createdAt])
+  @@index([keyword])
+  @@index([videoFormatFilter])
+  @@map("analysis_runs")
+}
+
+model AnalysisResult {
+  id                 Int      @id @default(autoincrement())
+  runId              Int      @map("run_id")
+  youtubeChannelId   String   @map("youtube_channel_id")
+  youtubeVideoId     String   @map("youtube_video_id")
+  viralScore         Float    @default(0) @map("viral_score")
+  opportunityScore   Float    @default(0) @map("opportunity_score")
+  channelAgeDays     Int      @default(0) @map("channel_age_days")
+  viewsPerSubscriber Float    @default(0) @map("views_per_subscriber")
+  videoFormat        String?  @map("video_format")
+  recommendation     String?
+  reason             String?
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  run                AnalysisRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([youtubeChannelId])
+  @@index([youtubeVideoId])
+  @@index([opportunityScore])
+  @@index([videoFormat])
+  @@map("analysis_results")
+}
+
+model NicheReport {
+  id                      Int      @id @default(autoincrement())
+  runId                   Int      @unique @map("run_id")
+  keyword                 String
+  regionCode              String?  @map("region_code")
+  videoFormatFilter       String   @default("all") @map("video_format_filter")
+  opportunityLevel        String   @map("opportunity_level")
+  nicheDifficulty         String   @map("niche_difficulty")
+  creatorFitScore         Float    @default(0) @map("creator_fit_score")
+  bestFormat              String?  @map("best_format")
+  averageOpportunityScore Float    @default(0) @map("average_opportunity_score")
+  averageViews            Float    @default(0) @map("average_views")
+  averageSubscribers      Float    @default(0) @map("average_subscribers")
+  shortsRatio             Float    @default(0) @map("shorts_ratio")
+  longFormRatio           Float    @default(0) @map("long_form_ratio")
+  titlePatterns           Json?    @map("title_patterns")
+  hashtagPatterns         Json?    @map("hashtag_patterns")
+  reportJson              Json     @map("report_json")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  run                     AnalysisRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([keyword])
+  @@index([createdAt])
+  @@index([creatorFitScore])
+  @@index([videoFormatFilter])
+  @@map("niche_reports")
+}
+
+model SavedChannel {
+  id                     Int      @id @default(autoincrement())
+  youtubeChannelId       String   @unique @map("youtube_channel_id")
+  youtubeVideoId         String?  @map("youtube_video_id")
+  sourceRunId            Int?     @map("source_run_id")
+  savedKeyword           String?  @map("saved_keyword")
+  savedRegionCode        String?  @map("saved_region_code")
+  savedScore             Float    @default(0) @map("saved_score")
+  savedOpportunityScore  Float    @default(0) @map("saved_opportunity_score")
+  savedReason            String?  @map("saved_reason")
+  notes                  String?
+  status                 String   @default("watching")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  channel                Channel  @relation(fields: [youtubeChannelId], references: [youtubeChannelId], onDelete: Cascade)
+  video                  Video?   @relation(fields: [youtubeVideoId], references: [youtubeVideoId], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([savedKeyword])
+  @@index([status])
+  @@index([savedOpportunityScore])
+  @@map("saved_channels")
+}
+
+model ChannelSnapshot {
+  id                 Int      @id @default(autoincrement())
+  youtubeChannelId   String   @map("youtube_channel_id")
+  subscriberCount    BigInt   @default(0) @map("subscriber_count")
+  totalViewCount     BigInt   @default(0) @map("total_view_count")
+  videoCount         BigInt   @default(0) @map("video_count")
+  source             String   @default("analysis")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  channel            Channel  @relation(fields: [youtubeChannelId], references: [youtubeChannelId], onDelete: Cascade)
+
+  @@index([youtubeChannelId, createdAt])
+  @@map("channel_snapshots")
+}
+
+model VideoSnapshot {
+  id                Int      @id @default(autoincrement())
+  youtubeVideoId    String   @map("youtube_video_id")
+  viewCount         BigInt   @default(0) @map("view_count")
+  likeCount         BigInt   @default(0) @map("like_count")
+  commentCount      BigInt   @default(0) @map("comment_count")
+  source            String   @default("analysis")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  video             Video    @relation(fields: [youtubeVideoId], references: [youtubeVideoId], onDelete: Cascade)
+
+  @@index([youtubeVideoId, createdAt])
+  @@map("video_snapshots")
+}
+
+model DeepChannelAnalysis {
+  id                Int      @id @default(autoincrement())
+  youtubeChannelId  String   @map("youtube_channel_id")
+  channelTitle      String   @map("channel_title")
+  maxResults        Int      @default(25) @map("max_results")
+  totalVideos       Int      @default(0) @map("total_videos")
+  averageViews      Float    @default(0) @map("average_views")
+  averageEngagement Float    @default(0) @map("average_engagement")
+  dominantFormat    String?  @map("dominant_format")
+  uploadCadence     String?  @map("upload_cadence")
+  repeatabilityScore Float   @default(0) @map("repeatability_score")
+  copyDifficulty    String   @default("Unknown") @map("copy_difficulty")
+  reportJson        Json     @map("report_json")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([youtubeChannelId])
+  @@index([createdAt])
+  @@index([repeatabilityScore])
+  @@map("deep_channel_analyses")
+}
+
+model ContentIdeaSet {
+  id                  Int      @id @default(autoincrement())
+  keyword             String?
+  youtubeChannelId     String?  @map("youtube_channel_id")
+  sourceType           String   @default("manual") @map("source_type")
+  formatPreference     String   @default("mixed") @map("format_preference")
+  creatorFitScore      Float    @default(0) @map("creator_fit_score")
+  ideasJson            Json     @map("ideas_json")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  @@index([keyword])
+  @@index([youtubeChannelId])
+  @@index([createdAt])
+  @@map("content_idea_sets")
+}
+
+model MonetizationReport {
+  id                    Int      @id @default(autoincrement())
+  keyword               String
+  nicheReportId          Int?     @map("niche_report_id")
+  adsensePotential       String   @map("adsense_potential")
+  affiliatePotential     String   @map("affiliate_potential")
+  sponsorshipPotential   String   @map("sponsorship_potential")
+  productPotential       String   @map("product_potential")
+  communityPotential     String   @map("community_potential")
+  monetizationScore      Float    @default(0) @map("monetization_score")
+  reportJson             Json     @map("report_json")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  @@index([keyword])
+  @@index([createdAt])
+  @@index([monetizationScore])
+  @@map("monetization_reports")
+}
+
+model ScheduledScan {
+  id                   Int      @id @default(autoincrement())
+  name                 String
+  keyword              String
+  regionCode           String?  @map("region_code")
+  daysBack             Int      @default(30) @map("days_back")
+  maxChannelAgeDays    Int      @default(365) @map("max_channel_age_days")
+  maxResults           Int      @default(25) @map("max_results")
+  minVideoViews        Int      @default(10000) @map("min_video_views")
+  videoFormatFilter    String   @default("all") @map("video_format_filter")
+  cadence              String   @default("daily")
+  active               Boolean  @default(true)
+  lastRunAt            DateTime? @map("last_run_at")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@index([active])
+  @@index([keyword])
+  @@map("scheduled_scans")
+}
